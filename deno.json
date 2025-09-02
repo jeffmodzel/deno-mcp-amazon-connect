@@ -1,0 +1,28 @@
+{
+  "tasks": {
+    "start": "deno run --allow-all src/server.ts",
+    "test": "deno test --allow-all src/"
+  },
+  "fmt": {
+    "include": [
+      "src/",
+      "tests/",
+      "examples/",
+      "*.ts",
+      "*.json"
+    ],
+    "exclude": [
+      "coverage/"
+    ],
+    "singleQuote": true,
+    "lineWidth": 120
+  },
+  "lint": {
+    "include": [
+      "src/",
+      "tests/",
+      "examples/",
+      "*.ts"
+    ]
+  }
+}

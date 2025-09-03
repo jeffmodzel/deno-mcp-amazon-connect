@@ -1,5 +1,5 @@
 import { McpServer } from './src/mcp_server.ts';
-import { logger } from './src/logger.ts';
+import { logger, flushLogs } from './src/logger.ts';
 
 console.log(`Log level: ${logger.levelName}`);
 
@@ -7,5 +7,6 @@ console.log(`Log level: ${logger.levelName}`);
 if (import.meta.main) {
   logger.info(`MCP File & Weather Server running on stdio`);
   const server = new McpServer();
+  await flushLogs();
   await server.run();
 }

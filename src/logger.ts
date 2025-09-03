@@ -1,4 +1,5 @@
-import { getLogger, handlers, LevelName, LogLevels, LogRecord, setup } from 'https://deno.land/std@0.203.0/log/mod.ts';
+import { getLogger, LevelName, LogLevels, LogRecord, setup } from 'https://deno.land/std@0.203.0/log/mod.ts';
+import * as handlers from 'https://deno.land/std@0.203.0/log/handlers.ts';
 import * as path from 'https://deno.land/std@0.203.0/path/mod.ts';
 
 const LOG_FILE = path.join(Deno.cwd(), 'app.log');
@@ -33,3 +34,22 @@ setup({
 });
 
 export const logger = getLogger();
+
+/** Flushes all pending logs to the file handler. This is useful in applications that do not exit cleanly. */
+export async function flushLogs(): Promise<void> {
+  const fileHandler = getFileHandler();
+  if (fileHandler) {
+    await fileHandler.flush();
+  }
+}
+
+/** Gets a reference to the configured FileHandler. */
+function getFileHandler(): undefined | handlers.FileHandler {
+  const fileHandler = getLogger().handlers.find(
+    (handler) => handler instanceof handlers.FileHandler,
+  );
+  if (fileHandler instanceof handlers.FileHandler) {
+    return fileHandler;
+  }
+  return undefined;
+}

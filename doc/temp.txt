@@ -1,0 +1,309 @@
+#!/usr/bin/env -S deno run --allow-read --allow-net --allow-env
+
+import { Server } from "npm:@modelcontextprotocol/sdk/server/index.js";
+import { StdioServerTransport } from "npm:@modelcontextprotocol/sdk/server/stdio.js";
+import {
+  CallToolRequestSchema,
+  ErrorCode,
+  ListToolsRequestSchema,
+  McpError,
+} from "npm:@modelcontextprotocol/sdk/types.js";
+import { join, normalize, resolve } from "https://deno.land/std@0.208.0/path/mod.ts";
+import { existsSync } from "https://deno.land/std@0.208.0/fs/mod.ts";
+
+// Configuration
+const ALLOWED_BASE_DIR = Deno.env.get("MCP_FILE_BASE_DIR") || "./data";
+const WEATHER_API_URL = Deno.env.get("WEATHER_API_URL") || "http://localhost:3000/weather";
+
+// Tool definitions
+const TOOLS = [
+  {
+    name: "read_file",
+    description: "Read the contents of a text file from the allowed directory",
+    inputSchema: {
+      type: "object",
+      properties: {
+        path: {
+          type: "string",
+          description: "Relative path to the file within the allowed directory",
+        },
+      },
+      required: ["path"],
+    },
+  },
+  {
+    name: "get_weather_forecast",
+    description: "Get weather forecast for given coordinates",
+    inputSchema: {
+      type: "object",
+      properties: {
+        latitude: {
+          type: "number",
+          description: "Latitude coordinate",
+          minimum: -90,
+          maximum: 90,
+        },
+        longitude: {
+          type: "number",
+          description: "Longitude coordinate",
+          minimum: -180,
+          maximum: 180,
+        },
+      },
+      required: ["latitude", "longitude"],
+    },
+  },
+];
+
+class McpFileWeatherServer {
+  private server: Server;
+  private allowedBaseDir: string;
+
+  constructor() {
+    this.server = new Server(
+      {
+        name: "example-file-weather-server",
+        version: "0.1.0",
+      },
+      {
+        capabilities: {
+          tools: {},
+        },
+      }
+    );
+
+    // Resolve and normalize the base directory path
+    this.allowedBaseDir = resolve(normalize(ALLOWED_BASE_DIR));
+    
+    this.setupToolHandlers();
+  }
+
+  private setupToolHandlers() {
+    // List available tools
+    this.server.setRequestHandler(ListToolsRequestSchema, async () => {
+      return {
+        tools: TOOLS,
+      };
+    });
+
+    // Handle tool calls
+    this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
+      const { name, arguments: args } = request.params;
+
+      try {
+        switch (name) {
+          case "read_file":
+            return await this.handleReadFile(args);
+          case "get_weather_forecast":
+            return await this.handleWeatherForecast(args);
+          default:
+            throw new McpError(
+              ErrorCode.MethodNotFound,
+              `Unknown tool: ${name}`
+            );
+        }
+      } catch (error) {
+        if (error instanceof McpError) {
+          throw error;
+        }
+        throw new McpError(
+          ErrorCode.InternalError,
+          `Tool execution failed: ${error.message}`
+        );
+      }
+    });
+  }
+
+  private async handleReadFile(args: any) {
+    const { path } = args;
+
+    if (!path || typeof path !== "string") {
+      throw new McpError(
+        ErrorCode.InvalidParams,
+        "Path parameter is required and must be a string"
+      );
+    }
+
+    // Resolve the requested file path
+    const requestedPath = resolve(normalize(join(this.allowedBaseDir, path)));
+
+    // Security check: ensure the resolved path is within the allowed directory
+    if (!requestedPath.startsWith(this.allowedBaseDir)) {
+      throw new McpError(
+        ErrorCode.InvalidParams,
+        "Access denied: path is outside allowed directory"
+      );
+    }
+
+    try {
+      // Check if file exists
+      if (!existsSync(requestedPath)) {
+        throw new McpError(
+          ErrorCode.InvalidParams,
+          `File not found: ${path}`
+        );
+      }
+
+      // Check if it's actually a file (not a directory)
+      const fileInfo = await Deno.stat(requestedPath);
+      if (!fileInfo.isFile) {
+        throw new McpError(
+          ErrorCode.InvalidParams,
+          `Path is not a file: ${path}`
+        );
+      }
+
+      // Read the file
+      const content = await Deno.readTextFile(requestedPath);
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: `File: ${path}\n\nContent:\n${content}`,
+          },
+        ],
+      };
+    } catch (error) {
+      if (error instanceof McpError) {
+        throw error;
+      }
+
+      // Handle common Deno file errors
+      if (error instanceof Deno.errors.NotFound) {
+        throw new McpError(
+          ErrorCode.InvalidParams,
+          `File not found: ${path}`
+        );
+      } else if (error instanceof Deno.errors.PermissionDenied) {
+        throw new McpError(
+          ErrorCode.InvalidParams,
+          `Permission denied reading file: ${path}`
+        );
+      } else {
+        throw new McpError(
+          ErrorCode.InternalError,
+          `Failed to read file: ${error.message}`
+        );
+      }
+    }
+  }
+
+  private async handleWeatherForecast(args: any) {
+    const { latitude, longitude } = args;
+
+    // Validate input parameters
+    if (typeof latitude !== "number" || typeof longitude !== "number") {
+      throw new McpError(
+        ErrorCode.InvalidParams,
+        "Latitude and longitude must be numbers"
+      );
+    }
+
+    if (latitude < -90 || latitude > 90) {
+      throw new McpError(
+        ErrorCode.InvalidParams,
+        "Latitude must be between -90 and 90"
+      );
+    }
+
+    if (longitude < -180 || longitude > 180) {
+      throw new McpError(
+        ErrorCode.InvalidParams,
+        "Longitude must be between -180 and 180"
+      );
+    }
+
+    try {
+      // Create URL with query parameters
+      const url = new URL(WEATHER_API_URL);
+      url.searchParams.set("lat", latitude.toString());
+      url.searchParams.set("lon", longitude.toString());
+
+      // Make the API request with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        headers: {
+          "Accept": "application/json",
+          "User-Agent": "MCP-File-Weather-Server/0.1.0",
+        },
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new McpError(
+            ErrorCode.InvalidParams,
+            "Weather data not available for these coordinates"
+          );
+        } else if (response.status >= 500) {
+          throw new McpError(
+            ErrorCode.InternalError,
+            "Weather service is currently unavailable"
+          );
+        } else {
+          throw new McpError(
+            ErrorCode.InternalError,
+            `Weather API error: ${response.status} ${response.statusText}`
+          );
+        }
+      }
+
+      const weatherData = await response.json();
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Weather forecast for coordinates (${latitude}, ${longitude}):\n\n${JSON.stringify(weatherData, null, 2)}`,
+          },
+        ],
+      };
+    } catch (error) {
+      if (error instanceof McpError) {
+        throw error;
+      }
+
+      // Handle network errors
+      if (error.name === "AbortError") {
+        throw new McpError(
+          ErrorCode.InternalError,
+          "Weather API request timed out"
+        );
+      } else if (error instanceof TypeError && error.message.includes("fetch")) {
+        throw new McpError(
+          ErrorCode.InternalError,
+          "Unable to connect to weather service"
+        );
+      } else {
+        throw new McpError(
+          ErrorCode.InternalError,
+          `Weather API error: ${error.message}`
+        );
+      }
+    }
+  }
+
+  async run() {
+    // Create stdio transport
+    const transport = new StdioServerTransport();
+    
+    // Connect server to transport
+    await this.server.connect(transport);
+    
+    console.error(`MCP File & Weather Server running on stdio`);
+    console.error(`Allowed directory: ${this.allowedBaseDir}`);
+    console.error(`Weather API URL: ${WEATHER_API_URL}`);
+  }
+}
+
+// Run the server
+if (import.meta.main) {
+  const server = new McpFileWeatherServer();
+  await server.run();
+}

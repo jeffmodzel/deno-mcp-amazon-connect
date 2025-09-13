@@ -10,13 +10,14 @@ import { join, normalize, resolve } from 'https://deno.land/std@0.208.0/path/mod
 //import { existsSync } from "https://deno.land/std@0.208.0/fs/mod.ts";
 
 import { TOOLS } from './tools/mod.ts';
-import { logger } from './logger.ts';
+import { logger, flushLogs } from './logger.ts';
+import { AmazonConnectMetadataManager } from './manager/mod.ts';
 
-//const ALLOWED_BASE_DIR = Deno.env.get("MCP_FILE_BASE_DIR") || "./data";
+const DATA_FOLDER = Deno.env.get("MCP_DATA_FOLDER") || "C:\\github\\deno-mcp-amazon-connect\\data";
 
 export class McpServer {
   private server: Server;
-  //private allowedBaseDir: string;
+  private manager: AmazonConnectMetadataManager;
 
   constructor() {
     logger.debug('McpServer.constructor()');
@@ -32,9 +33,7 @@ export class McpServer {
       },
     );
 
-    // Resolve and normalize the base directory path
-    //this.allowedBaseDir = resolve(normalize(ALLOWED_BASE_DIR));
-
+    this.manager = new AmazonConnectMetadataManager(DATA_FOLDER);
     this.setupToolHandlers();
   }
 
@@ -56,6 +55,8 @@ export class McpServer {
         switch (name) {
           case 'get_connect_instance_metadata':
             return await this.handleGetConnectInstanceMetadata(args);
+          case 'get_all_connect_instances_metadata':
+            return await this.handleGetAllConnectInstanceMetadata(args);
           default:
             throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
         }
@@ -73,6 +74,8 @@ export class McpServer {
 
   async run() {
     logger.debug('McpServer.run()');
+    await this.manager.loadMetadata();
+
     // Create stdio transport
     const transport = new StdioServerTransport();
     // Connect server to transport
@@ -81,17 +84,44 @@ export class McpServer {
 
   private async handleGetConnectInstanceMetadata(args: any) {
     logger.debug('McpServer.handleGetConnectInstanceMetadata()');
+    await flushLogs();
+
     const { friendlyName } = args;
+
+    let responseText = 'No Connect Instance available';
+    if (friendlyName === 'dev') {
+      responseText = 'dev Connect Instance ARN is arn:1234:qwerty, Account ID: 987654321';
+    }
+    if (friendlyName === 'prod') {
+      responseText = 'prod Connect Instance ARN is arn:554433:azazaz, Account ID: 1122334455';
+    }
 
     return {
       content: [
         {
-          type: "text",
-          text: `Not Implemented`,
+          type: 'text',
+          text: responseText,
         },
       ],
     };
 
     //throw new Error('Method not implemented: McpServer.handleGetConnectInstanceMetadata()');
   }
+
+  private async handleGetAllConnectInstanceMetadata(args: any) {
+    logger.debug('McpServer.handleGetAllConnectInstanceMetadata()');
+    logger.debug(`args: ${JSON.stringify(args)}`);
+    await flushLogs();
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(this.manager.getInstances()),
+        },
+      ],
+    };
+  }
+
+
 }

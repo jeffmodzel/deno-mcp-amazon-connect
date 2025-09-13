@@ -1,13 +1,14 @@
 {
   "tasks": {
     "start": "deno run --allow-all main.ts",
+    "manager":"deno run --allow-all manager.ts",
     "test": "deno test --allow-all src/"
   },
   "fmt": {
     "include": [
       "src/",
       "tests/",
-      "examples/",
+      "data/",
       "*.ts",
       "*.json"
     ],

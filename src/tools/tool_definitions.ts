@@ -15,6 +15,17 @@ export const TOOLS = [
     },
   },
   {
+    name: 'get_all_connect_instances_metadata',
+    title: 'Get All Connect Instances',
+    description: 'Get metadata about all available Amazon Connect instances',
+    inputSchema: {
+      'type': 'object',
+      'properties': {},
+      'required': [],
+    },
+    readonly: true
+  },
+  {
     name: 'get_weather_forecast',
     description: 'Get weather forecast for given coordinates',
     inputSchema: {

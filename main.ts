@@ -1,7 +1,7 @@
 import { McpServer } from './src/mcp_server.ts';
 import { logger, flushLogs } from './src/logger.ts';
 
-console.log(`Log level: ${logger.levelName}`);
+//console.log(`Log level: ${logger.levelName}`);
 
 // Run the server
 if (import.meta.main) {

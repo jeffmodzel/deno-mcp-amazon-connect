@@ -2,6 +2,12 @@
 
 MCP Amazon Connect metadata server written in Deno/TypeScript
 
+## TODO
+
+Remove unused tool methods
+make logging file parameterized somehow
+add health check on loading all the data files that all ARNs are unique
+can we delete the "Metadata" property from JSON objects, can we confirm this info is not relavent
 
 ## Environment variables
 

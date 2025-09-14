@@ -2,8 +2,9 @@ import { getLogger, LevelName, LogConfig, LogRecord, setup } from 'https://deno.
 import * as handlers from 'https://deno.land/std@0.203.0/log/handlers.ts';
 import * as path from 'https://deno.land/std@0.203.0/path/mod.ts';
 
-//const LOG_FILE = path.join(Deno.cwd(), 'app.log');
-const LOG_FILE = path.join('c:\\temp', 'mcp_connect_app.log');
+const LOG_FILE = path.join(Deno.cwd(), 'app.log');
+// should this be ENV'd
+//const LOG_FILE = path.join('c:\\temp', 'mcp_connect_app.log');
 
 const LOG_LEVEL_NAME = (Deno.env.get('LOG_LEVEL') || 'DEBUG') as LevelName;
 const ALLOW_CONSOLE_LOGGING = Deno.env.get('ALLOW_CONSOLE_LOGGING') || 'FALSE';

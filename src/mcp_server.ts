@@ -10,10 +10,10 @@ import { join, normalize, resolve } from 'https://deno.land/std@0.208.0/path/mod
 //import { existsSync } from "https://deno.land/std@0.208.0/fs/mod.ts";
 
 import { TOOLS } from './tools/mod.ts';
-import { logger, flushLogs } from './logger.ts';
+import { flushLogs, logger } from './logger.ts';
 import { AmazonConnectMetadataManager } from './manager/mod.ts';
 
-const DATA_FOLDER = Deno.env.get("MCP_DATA_FOLDER") || "C:\\github\\deno-mcp-amazon-connect\\data";
+const DATA_FOLDER = Deno.env.get('MCP_DATA_FOLDER') || 'C:\\github\\deno-mcp-amazon-connect\\data';
 
 export class McpServer {
   private server: Server;
@@ -57,6 +57,8 @@ export class McpServer {
             return await this.handleGetConnectInstanceMetadata(args);
           case 'get_all_connect_instances_metadata':
             return await this.handleGetAllConnectInstanceMetadata(args);
+          case 'get_contact_flow_metadata':
+            return await this.handleGetContactFlowMetadata(args);
           default:
             throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);
         }
@@ -123,5 +125,25 @@ export class McpServer {
     };
   }
 
+  private handleGetContactFlowMetadata(args: any) {
+    logger.debug('McpServer.handleGetContactFlowMetadata()');
 
+    const { Arn } = args;
+
+    let responseText = 'Contact Flow not found.';
+    const found = this.manager.getContactFlow(Arn);
+    if (found) {
+      responseText = JSON.stringify(found);
+    }
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: responseText,
+        },
+      ],
+    };
+
+  }
 }

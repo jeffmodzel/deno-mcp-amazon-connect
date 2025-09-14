@@ -17,7 +17,7 @@ export const TOOLS = [
   {
     name: 'get_all_connect_instances_metadata',
     title: 'Get All Connect Instances',
-    description: 'Get metadata about all available Amazon Connect instances',
+    description: 'Get metadata about all available Amazon Connect instances, including basic information about Contact Flows.',
     inputSchema: {
       'type': 'object',
       'properties': {},
@@ -26,25 +26,18 @@ export const TOOLS = [
     readonly: true
   },
   {
-    name: 'get_weather_forecast',
-    description: 'Get weather forecast for given coordinates',
+    name: 'get_contact_flow_metadata',
+    description: 'Get full metadata in JSON format about a Contact Flow',
     inputSchema: {
       type: 'object',
       properties: {
-        latitude: {
-          type: 'number',
-          description: 'Latitude coordinate',
-          minimum: -90,
-          maximum: 90,
-        },
-        longitude: {
-          type: 'number',
-          description: 'Longitude coordinate',
-          minimum: -180,
-          maximum: 180,
-        },
+        Arn: {
+          type: 'string',
+          description: 'The ARN (Amazon Resource Name) of the Contact Flow',
+        }
       },
-      required: ['latitude', 'longitude'],
+      required: ['Arn'],
     },
-  },
+    readonly: true
+  }
 ];
